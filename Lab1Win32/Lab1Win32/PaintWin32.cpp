@@ -189,6 +189,7 @@ int MouseMoveAction(HWND hWnd, LPARAM lParam, POINTS *ptsBegin, figures currentF
 	GetClientRect(hWnd, &lprect);
 	memBM = CreateCompatibleBitmap(hdc, lprect.right, lprect.bottom);
     SelectObject ( memDC, memBM);
+	BitBlt(memDC, 0, 0, lprect.right, lprect.bottom, hdc, 0, 0, SRCCOPY);
 
 	ptsEnd = MAKEPOINTS(lParam);		// get the end coords in POINTS format
 	MoveToEx(hdc, ptsBegin->x, ptsBegin->y, (LPPOINT) NULL);
@@ -215,8 +216,10 @@ int MouseMoveAction(HWND hWnd, LPARAM lParam, POINTS *ptsBegin, figures currentF
 	if (currentTool == BRUSH)
 	{
 	}
-	BitBlt(memDC, 0, 0, lprect.right, lprect.bottom, hdc, 0, 0, SRCCOPY);
-		
+
+	//BitBlt(hdc, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, MERGECOPY);	
+
 	ReleaseDC(hWnd, hdc);				// free DC
+	ReleaseDC(hWnd, memDC);				// free memDC
 	return 0;
 }
