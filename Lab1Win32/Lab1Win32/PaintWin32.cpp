@@ -179,12 +179,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 int MouseMoveAction(HWND hWnd, LPARAM lParam, POINTS *ptsBegin, figures currentFigure, tools currentTool)
 {
 	HDC hdc;
+	HDC memDC;
+	HBITMAP memBM;
     POINTS ptsEnd;
 	RECT lprect;
+
 	hdc = GetDC(hWnd);					// retrieves a handle to a device context (DC) for the client area
-	//CreateCompatibleDC(hdc);
-	//GetClientRect(hWnd, &lprect);
-	//CreateCompatibleBitmap(hdc, lprect.right, lprect.bottom);
+	memDC = CreateCompatibleDC(hdc);
+	GetClientRect(hWnd, &lprect);
+	memBM = CreateCompatibleBitmap(hdc, lprect.right, lprect.bottom);
+    SelectObject ( memDC, memBM);
 
 	ptsEnd = MAKEPOINTS(lParam);		// get the end coords in POINTS format
 	MoveToEx(hdc, ptsBegin->x, ptsBegin->y, (LPPOINT) NULL);
@@ -193,13 +197,13 @@ int MouseMoveAction(HWND hWnd, LPARAM lParam, POINTS *ptsBegin, figures currentF
 		switch (currentFigure)
 		{
 		case LINE:
-
+			LineTo(hdc, ptsEnd.x, ptsEnd.y);
 			break;
 		case ELLIPSE:
-
+			Ellipse(hdc, ptsBegin->x, ptsBegin->y, ptsEnd.x, ptsEnd.y);
 			break;
 		case RECTANGLE:
-
+			Rectangle(hdc, ptsBegin->x, ptsBegin->y, ptsEnd.x, ptsEnd.y);
 			break;
 		default:
 			LineTo(hdc, ptsEnd.x, ptsEnd.y);
@@ -211,6 +215,7 @@ int MouseMoveAction(HWND hWnd, LPARAM lParam, POINTS *ptsBegin, figures currentF
 	if (currentTool == BRUSH)
 	{
 	}
+	BitBlt(memDC, 0, 0, lprect.right, lprect.bottom, hdc, 0, 0, SRCCOPY);
 		
 	ReleaseDC(hWnd, hdc);				// free DC
 	return 0;
