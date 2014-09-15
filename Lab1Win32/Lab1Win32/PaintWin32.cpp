@@ -8,14 +8,24 @@
 
 // Global variables
 #define WM_MOUSEMOVE 0x0200
+#define W_PEN 1002
+#define W_BRUSH 1003
+#define W_LINE 1004
+#define W_ELLIPSE 1005
+#define W_RECTANGLE 1006
 
 
 static TCHAR szWindowClass[] = _T("win32app");			// The main window class name.
 static TCHAR szTitle[] = _T("Win32 Paint Application");
+static enum tools {PEN, BRUSH} currentTool = PEN;
+static enum figures {NONE, LINE, ELLIPSE, RECTANGLE} currentFigure = NONE;
+BOOL fTracking = FALSE;
+POINTS ptsBegin;
 
 HINSTANCE hInst;
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+int MouseMoveAction(HWND, LPARAM, POINTS *, figures , tools );
 
 int WINAPI WinMain(HINSTANCE hInstance,
                    HINSTANCE hPrevInstance,
@@ -60,6 +70,22 @@ int WINAPI WinMain(HINSTANCE hInstance,
         hInstance,						//the first parameter from WinMain
         NULL							//not used in this application
     );
+	HMENU main_menu = CreateMenu();
+	HMENU menu_file = CreatePopupMenu();
+	HMENU menu_draw = CreatePopupMenu();
+	HMENU menu_figure = CreatePopupMenu();
+	AppendMenu(main_menu, MF_STRING | MF_POPUP, (UINT)menu_file, L"&File");
+	AppendMenu(main_menu, MF_STRING | MF_POPUP, (UINT)menu_draw, L"&Draw");
+	AppendMenu(menu_file, MF_STRING, 1001, L"...");
+	AppendMenu(menu_draw, MF_STRING, W_PEN, L"&Pen");
+	AppendMenu(menu_draw, MF_STRING, W_BRUSH, L"&Brush");
+	AppendMenu(menu_draw, MF_STRING | MF_POPUP, (UINT)menu_figure, L"&Figure");
+	AppendMenu(menu_figure, MF_STRING, W_LINE, L"&Line");
+	AppendMenu(menu_figure, MF_STRING, W_ELLIPSE, L"&Ellipse");
+	AppendMenu(menu_figure, MF_STRING, W_RECTANGLE, L"&Rectangle");
+	//CheckMenuRadioItem(menu_draw,W_PEN,W_BRUSH,W_PEN, MF_CHECKED);  
+ 
+	SetMenu(hWnd, main_menu);
 
     if (!hWnd)
     {
@@ -88,34 +114,50 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    HDC hdc;
-
-    static POINTS ptsBegin;
-    static POINTS ptsEnd;
-    static BOOL fTracking = FALSE;
 
     switch (message)
     {
+	case WM_CREATE:
+        
+        break;
 	case WM_LBUTTONDOWN:
 		SetCapture(hWnd);						// capture the mouse
 		fTracking = TRUE;
-
 		ptsBegin = MAKEPOINTS(lParam);			// get the begin coords in POINTS format
-		return 0;
+		break;
+	case WM_COMMAND:
+
+		HMENU hMenu;
+		switch (wParam) 
+		{
+		case W_PEN:
+			currentTool = PEN;
+			break;
+		case W_BRUSH:
+			currentTool = BRUSH;
+			break;
+		default: break;
+		}
+
+		switch (wParam) 
+		{
+		case W_LINE:
+			currentFigure = LINE;
+			break;
+		case W_ELLIPSE:
+			currentFigure = ELLIPSE;
+			break;
+		case W_RECTANGLE:
+			currentFigure = RECTANGLE;
+			break;
+		default: break;
+		}
+		break;
 
 	case WM_MOUSEMOVE:
 		if (fTracking)
 		{
-
-			hdc = GetDC(hWnd);					// retrieves a handle to a device context (DC) for the client area
-
-			ptsEnd = MAKEPOINTS(lParam);		// get the end coords in POINTS format
-			MoveToEx(hdc, ptsBegin.x, ptsBegin.y, (LPPOINT) NULL);
-			LineTo(hdc, ptsEnd.x, ptsEnd.y);
-			ptsBegin.x = ptsEnd.x;
-			ptsBegin.y = ptsEnd.y;
-
-			ReleaseDC(hWnd, hdc);				// free DC
+			MouseMoveAction(hWnd, lParam, &ptsBegin, currentFigure, currentTool);
 		}
 		break;
     case WM_LBUTTONUP:
@@ -133,4 +175,43 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
 
     return 0;
+}
+int MouseMoveAction(HWND hWnd, LPARAM lParam, POINTS *ptsBegin, figures currentFigure, tools currentTool)
+{
+	HDC hdc;
+    POINTS ptsEnd;
+	RECT lprect;
+	hdc = GetDC(hWnd);					// retrieves a handle to a device context (DC) for the client area
+	//CreateCompatibleDC(hdc);
+	//GetClientRect(hWnd, &lprect);
+	//CreateCompatibleBitmap(hdc, lprect.right, lprect.bottom);
+
+	ptsEnd = MAKEPOINTS(lParam);		// get the end coords in POINTS format
+	MoveToEx(hdc, ptsBegin->x, ptsBegin->y, (LPPOINT) NULL);
+	if (currentTool == PEN)
+	{
+		switch (currentFigure)
+		{
+		case LINE:
+
+			break;
+		case ELLIPSE:
+
+			break;
+		case RECTANGLE:
+
+			break;
+		default:
+			LineTo(hdc, ptsEnd.x, ptsEnd.y);
+			ptsBegin->x = ptsEnd.x;
+			ptsBegin->y = ptsEnd.y;
+			break;
+		}
+	}
+	if (currentTool == BRUSH)
+	{
+	}
+		
+	ReleaseDC(hWnd, hdc);				// free DC
+	return 0;
 }
