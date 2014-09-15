@@ -24,8 +24,14 @@ BOOL fTracking = FALSE;
 POINTS ptsBegin;
 HDC hdc;
 HDC memDC;
+HDC memDC2;
 HBITMAP memBM;
+HBITMAP memBM2;
 RECT lprect;
+HBRUSH Brush;
+HGDIOBJ hOldBush;
+HPEN Pen;
+HGDIOBJ hOldPen;
 
 HINSTANCE hInst;
 
@@ -120,19 +126,29 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	HBRUSH Brush = CreateSolidBrush(RGB(255,255,255));
+	Brush = CreateSolidBrush(RGB(255,255,255));
+	
+	PAINTSTRUCT ps;
 
     switch (message)
     {
 	case WM_CREATE:
         hdc = GetDC(hWnd);					// retrieves a handle to a device context (DC) for the client area
 		memDC = CreateCompatibleDC(hdc);
+		memDC2 = CreateCompatibleDC(hdc);
 		GetClientRect(hWnd, &lprect);
 		memBM = CreateCompatibleBitmap(hdc, lprect.right, lprect.bottom);
+		memBM2 = CreateCompatibleBitmap(hdc, lprect.right, lprect.bottom);
 		SelectObject ( memDC, memBM);
-		FillRect(memDC,&lprect, Brush);
-		//Brush = RGB
+		SelectObject ( memDC2, memBM2);
+		//FillRect(memDC,&lprect, Brush);
+		//FillRect(memDC2,&lprect, Brush);
         break;
+	case WM_PAINT:
+		hdc = BeginPaint(hWnd, &ps);
+		BitBlt(hdc, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
+		EndPaint(hWnd,&ps);
+		break;
 	case WM_LBUTTONDOWN:
 		SetCapture(hWnd);						// capture the mouse
 		fTracking = TRUE;
@@ -177,7 +193,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	case WM_LBUTTONUP:
-		BitBlt(memDC, 0, 0, lprect.right, lprect.bottom, hdc, 0, 0, SRCCOPY);
+		BitBlt(memDC, 0, 0, lprect.right, lprect.bottom, memDC2, 0, 0, SRCCOPY);
+		BitBlt(hdc, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
         fTracking = FALSE;
         ClipCursor(NULL);						// free cursor
         ReleaseCapture();						
@@ -198,33 +215,36 @@ int MouseMoveAction(HWND hWnd, LPARAM lParam, POINTS *ptsBegin, figures currentF
 {
     POINTS ptsEnd;
 
-
-	
 	ptsEnd = MAKEPOINTS(lParam);		// get the end coords in POINTS format
-	MoveToEx(hdc, ptsBegin->x, ptsBegin->y, (LPPOINT) NULL);
+	MoveToEx(memDC2, ptsBegin->x, ptsBegin->y, (LPPOINT) NULL);
+	Brush = ( HBRUSH ) GetStockObject( HOLLOW_BRUSH );
+	//Pen = ( HPEN ) GetStockObject( BLACK_PEN);
+	hOldBush = SelectObject( memDC2, Brush );
+	//hOldPen = SelectObject(memDC2, Pen);
 	if (currentTool == PEN)
 	{
 		switch (currentFigure)
 		{
 		case LINE:
-			MoveToEx(hdc, ptsBegin->x, ptsBegin->y, (LPPOINT) NULL);
-			LineTo(hdc, ptsEnd.x, ptsEnd.y);
-			BitBlt(hdc, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
-			MoveToEx(hdc, ptsBegin->x, ptsBegin->y, (LPPOINT) NULL);
-			LineTo(hdc, ptsEnd.x, ptsEnd.y);
+			BitBlt(memDC2, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
+			MoveToEx(memDC2, ptsBegin->x, ptsBegin->y, (LPPOINT) NULL);
+			LineTo(memDC2, ptsEnd.x, ptsEnd.y);
+			BitBlt(hdc, 0, 0, lprect.right, lprect.bottom, memDC2, 0, 0, SRCCOPY);
 			break;
 		case ELLIPSE:
-			Ellipse(hdc, ptsBegin->x, ptsBegin->y, ptsEnd.x, ptsEnd.y);
-			BitBlt(hdc, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
-			Ellipse(hdc, ptsBegin->x, ptsBegin->y, ptsEnd.x, ptsEnd.y);
+			BitBlt(memDC2, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
+			Ellipse(memDC2, ptsBegin->x, ptsBegin->y, ptsEnd.x, ptsEnd.y);
+			BitBlt(hdc, 0, 0, lprect.right, lprect.bottom, memDC2, 0, 0, SRCCOPY);
 			break;
 		case RECTANGLE:
-			Rectangle(hdc, ptsBegin->x, ptsBegin->y, ptsEnd.x, ptsEnd.y);
-			BitBlt(hdc, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
-			Rectangle(hdc, ptsBegin->x, ptsBegin->y, ptsEnd.x, ptsEnd.y);
+			BitBlt(memDC2, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
+			Rectangle(memDC2, ptsBegin->x, ptsBegin->y, ptsEnd.x, ptsEnd.y);
+			BitBlt(hdc, 0, 0, lprect.right, lprect.bottom, memDC2, 0, 0, SRCCOPY);
 			break;
 		case CURVE:
-			LineTo(hdc, ptsEnd.x, ptsEnd.y);
+			LineTo(memDC2, ptsEnd.x, ptsEnd.y);
+			BitBlt(memDC, 0, 0, lprect.right, lprect.bottom, memDC2, 0, 0, SRCCOPY);
+			BitBlt(hdc, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
 			ptsBegin->x = ptsEnd.x;
 			ptsBegin->y = ptsEnd.y;
 			break;
