@@ -11,16 +11,27 @@
 #define W_PEN 1002
 #define W_BRUSH 1003
 #define W_LINE 1004
-#define W_ELLIPSE 1005
-#define W_RECTANGLE 1006
+#define W_CURVE 1005
+#define W_ELLIPSE 1006
+#define W_RECTANGLE 1007
 
 
 static TCHAR szWindowClass[] = _T("win32app");			// The main window class name.
 static TCHAR szTitle[] = _T("Win32 Paint Application");
 static enum tools {PEN, BRUSH} currentTool = PEN;
-static enum figures {NONE, LINE, ELLIPSE, RECTANGLE} currentFigure = NONE;
+static enum figures {NONE, LINE, CURVE, ELLIPSE, RECTANGLE} currentFigure = NONE;
 BOOL fTracking = FALSE;
 POINTS ptsBegin;
+HDC hdc;
+HDC memDC;
+HDC memDC2;
+HBITMAP memBM;
+HBITMAP memBM2;
+RECT lprect;
+HBRUSH Brush;
+HGDIOBJ hOldBush;
+HPEN Pen;
+HGDIOBJ hOldPen;
 
 HINSTANCE hInst;
 
@@ -81,6 +92,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	AppendMenu(menu_draw, MF_STRING, W_BRUSH, L"&Brush");
 	AppendMenu(menu_draw, MF_STRING | MF_POPUP, (UINT)menu_figure, L"&Figure");
 	AppendMenu(menu_figure, MF_STRING, W_LINE, L"&Line");
+	AppendMenu(menu_figure, MF_STRING, W_CURVE, L"&Curve");
 	AppendMenu(menu_figure, MF_STRING, W_ELLIPSE, L"&Ellipse");
 	AppendMenu(menu_figure, MF_STRING, W_RECTANGLE, L"&Rectangle");
 	//CheckMenuRadioItem(menu_draw,W_PEN,W_BRUSH,W_PEN, MF_CHECKED);  
@@ -114,12 +126,29 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+	Brush = CreateSolidBrush(RGB(255,255,255));
+	
+	PAINTSTRUCT ps;
 
     switch (message)
     {
 	case WM_CREATE:
-        
+        hdc = GetDC(hWnd);					// retrieves a handle to a device context (DC) for the client area
+		memDC = CreateCompatibleDC(hdc);
+		memDC2 = CreateCompatibleDC(hdc);
+		GetClientRect(hWnd, &lprect);
+		memBM = CreateCompatibleBitmap(hdc, lprect.right, lprect.bottom);
+		memBM2 = CreateCompatibleBitmap(hdc, lprect.right, lprect.bottom);
+		SelectObject ( memDC, memBM);
+		SelectObject ( memDC2, memBM2);
+		//FillRect(memDC,&lprect, Brush);
+		//FillRect(memDC2,&lprect, Brush);
         break;
+	case WM_PAINT:
+		hdc = BeginPaint(hWnd, &ps);
+		BitBlt(hdc, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
+		EndPaint(hWnd,&ps);
+		break;
 	case WM_LBUTTONDOWN:
 		SetCapture(hWnd);						// capture the mouse
 		fTracking = TRUE;
@@ -150,6 +179,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case W_RECTANGLE:
 			currentFigure = RECTANGLE;
 			break;
+		case W_CURVE:
+			currentFigure = CURVE;
+			break;
 		default: break;
 		}
 		break;
@@ -160,13 +192,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			MouseMoveAction(hWnd, lParam, &ptsBegin, currentFigure, currentTool);
 		}
 		break;
-    case WM_LBUTTONUP:
-
+	case WM_LBUTTONUP:
+		BitBlt(memDC, 0, 0, lprect.right, lprect.bottom, memDC2, 0, 0, SRCCOPY);
+		BitBlt(hdc, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
         fTracking = FALSE;
         ClipCursor(NULL);						// free cursor
         ReleaseCapture();						
         return 0;
     case WM_DESTROY:
+		ReleaseDC(hWnd, hdc);				// free DC
+		ReleaseDC(hWnd, memDC);				// free memDC
         PostQuitMessage(0);
         break;
     default:
@@ -178,35 +213,38 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 }
 int MouseMoveAction(HWND hWnd, LPARAM lParam, POINTS *ptsBegin, figures currentFigure, tools currentTool)
 {
-	HDC hdc;
-	HDC memDC;
-	HBITMAP memBM;
     POINTS ptsEnd;
-	RECT lprect;
-
-	hdc = GetDC(hWnd);					// retrieves a handle to a device context (DC) for the client area
-	memDC = CreateCompatibleDC(hdc);
-	GetClientRect(hWnd, &lprect);
-	memBM = CreateCompatibleBitmap(hdc, lprect.right, lprect.bottom);
-    SelectObject ( memDC, memBM);
 
 	ptsEnd = MAKEPOINTS(lParam);		// get the end coords in POINTS format
-	MoveToEx(hdc, ptsBegin->x, ptsBegin->y, (LPPOINT) NULL);
+	MoveToEx(memDC2, ptsBegin->x, ptsBegin->y, (LPPOINT) NULL);
+	Brush = ( HBRUSH ) GetStockObject( HOLLOW_BRUSH );
+	//Pen = ( HPEN ) GetStockObject( BLACK_PEN);
+	hOldBush = SelectObject( memDC2, Brush );
+	//hOldPen = SelectObject(memDC2, Pen);
 	if (currentTool == PEN)
 	{
 		switch (currentFigure)
 		{
 		case LINE:
-			LineTo(hdc, ptsEnd.x, ptsEnd.y);
+			BitBlt(memDC2, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
+			MoveToEx(memDC2, ptsBegin->x, ptsBegin->y, (LPPOINT) NULL);
+			LineTo(memDC2, ptsEnd.x, ptsEnd.y);
+			BitBlt(hdc, 0, 0, lprect.right, lprect.bottom, memDC2, 0, 0, SRCCOPY);
 			break;
 		case ELLIPSE:
-			Ellipse(hdc, ptsBegin->x, ptsBegin->y, ptsEnd.x, ptsEnd.y);
+			BitBlt(memDC2, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
+			Ellipse(memDC2, ptsBegin->x, ptsBegin->y, ptsEnd.x, ptsEnd.y);
+			BitBlt(hdc, 0, 0, lprect.right, lprect.bottom, memDC2, 0, 0, SRCCOPY);
 			break;
 		case RECTANGLE:
-			Rectangle(hdc, ptsBegin->x, ptsBegin->y, ptsEnd.x, ptsEnd.y);
+			BitBlt(memDC2, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
+			Rectangle(memDC2, ptsBegin->x, ptsBegin->y, ptsEnd.x, ptsEnd.y);
+			BitBlt(hdc, 0, 0, lprect.right, lprect.bottom, memDC2, 0, 0, SRCCOPY);
 			break;
-		default:
-			LineTo(hdc, ptsEnd.x, ptsEnd.y);
+		case CURVE:
+			LineTo(memDC2, ptsEnd.x, ptsEnd.y);
+			BitBlt(memDC, 0, 0, lprect.right, lprect.bottom, memDC2, 0, 0, SRCCOPY);
+			BitBlt(hdc, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
 			ptsBegin->x = ptsEnd.x;
 			ptsBegin->y = ptsEnd.y;
 			break;
@@ -215,8 +253,6 @@ int MouseMoveAction(HWND hWnd, LPARAM lParam, POINTS *ptsBegin, figures currentF
 	if (currentTool == BRUSH)
 	{
 	}
-	BitBlt(memDC, 0, 0, lprect.right, lprect.bottom, hdc, 0, 0, SRCCOPY);
-		
-	ReleaseDC(hWnd, hdc);				// free DC
+
 	return 0;
 }
