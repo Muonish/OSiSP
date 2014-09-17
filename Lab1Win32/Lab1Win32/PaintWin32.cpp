@@ -108,6 +108,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	AppendMenu(menu_figure, MF_STRING, W_LINE, L"&Line");
 	AppendMenu(menu_figure, MF_STRING, W_CURVE, L"&Curve");
 	AppendMenu(menu_figure, MF_STRING, W_ELLIPSE, L"&Ellipse");
+<<<<<<< HEAD
 	AppendMenu(menu_figure, MF_STRING, W_RECTANGLE, L"&Rectangle");  
 	AppendMenu(menu_figure, MF_STRING | MF_POPUP, (UINT)menu_polygon, L"&Polygon");  
 	AppendMenu(menu_polygon, MF_STRING, W_P3, L"&3");  
@@ -119,6 +120,10 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	AppendMenu(menu_color, MF_STRING, W_COLORBRUSH, L"&Brush...");
 	AppendMenu(main_menu, MF_STRING | MF_POPUP, (UINT)menu_canvas, L"&Canvas");
 	AppendMenu(menu_canvas, MF_STRING, W_CLEAR, L"&Clear");
+=======
+	AppendMenu(menu_figure, MF_STRING, W_RECTANGLE, L"&Rectangle");
+	//CheckMenuRadioItem(menu_draw,W_PEN,W_BRUSH,W_PEN, MF_CHECKED);  
+>>>>>>> parent of 8ea0975... lab1_problem_with_WM_PAINT1
  
 	SetMenu(hWnd, main_menu);
 
@@ -156,7 +161,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     switch (message)
     {
 	case WM_CREATE:
-		hdc = GetDC(hWnd);					// retrieves a handle to a device context (DC) for the client area
+        hdc = GetDC(hWnd);					// retrieves a handle to a device context (DC) for the client area
 		memDC = CreateCompatibleDC(hdc);
 		memDC2 = CreateCompatibleDC(hdc);
 		GetClientRect(hWnd, &lprect);
@@ -164,6 +169,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		memBM2 = CreateCompatibleBitmap(hdc, lprect.right, lprect.bottom);
 		SelectObject ( memDC, memBM);
 		SelectObject ( memDC2, memBM2);
+<<<<<<< HEAD
 		FillRect(memDC,&lprect, Brush);
 		FillRect(memDC2,&lprect, Brush);
 <<<<<<< HEAD
@@ -176,10 +182,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
 	/*case WM_PAINT:															//IT DOESN'T WORK!!!!!
 >>>>>>> parent of c32afb9... lap1_problem_with_runtime
+=======
+		//FillRect(memDC,&lprect, Brush);
+		//FillRect(memDC2,&lprect, Brush);
+        break;
+	case WM_PAINT:
+>>>>>>> parent of 8ea0975... lab1_problem_with_WM_PAINT1
 		hdc = BeginPaint(hWnd, &ps);
 		BitBlt(hdc, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
 		EndPaint(hWnd,&ps);
-		break;*/
+		break;
 	case WM_LBUTTONDOWN:
 		SetCapture(hWnd);						// capture the mouse
 		fTracking = TRUE;
@@ -267,7 +279,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_DESTROY:
 		ReleaseDC(hWnd, hdc);				// free DC
 		ReleaseDC(hWnd, memDC);				// free memDC
+<<<<<<< HEAD
 		ReleaseDC(hWnd, memDC2);			// free memDC2
+=======
+>>>>>>> parent of 8ea0975... lab1_problem_with_WM_PAINT1
         PostQuitMessage(0);
         break;
     default:
@@ -284,8 +299,15 @@ int MouseMoveAction(HWND hWnd, LPARAM lParam, POINTS *ptsBegin, figures currentF
 	ptsEnd = MAKEPOINTS(lParam);			// get the end coords in POINTS format
 	MoveToEx(memDC2, ptsBegin->x, ptsBegin->y, (LPPOINT) NULL);
 	Brush = ( HBRUSH ) GetStockObject( HOLLOW_BRUSH );
+	//Pen = ( HPEN ) GetStockObject( BLACK_PEN);
 	hOldBush = SelectObject( memDC2, Brush );
+<<<<<<< HEAD
 	
+=======
+	//hOldPen = SelectObject(memDC2, Pen);
+	if (currentTool == PEN)
+	{
+>>>>>>> parent of 8ea0975... lab1_problem_with_WM_PAINT1
 		switch (currentFigure)
 		{
 		case LINE:
