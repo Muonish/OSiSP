@@ -26,6 +26,11 @@
 #define IDM_CLEAR 1016
 #define IDM_PRINT 1017
 #define IDM_TEXT 1018
+#define IDM_W1 1019
+#define IDM_W2 1020
+#define IDM_W3 1021
+#define IDM_W4 1022
+
 #define IDM_ABOUT				104
 #define IDM_EXIT				105
 #define IDI_WIN32LAB1_NEW			107
