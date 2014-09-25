@@ -23,25 +23,36 @@ static TCHAR szTitle[] = _T("Win32 Paint Application");
 static TCHAR szWindowClass[] = _T("win32app");			// The main window class name.
 static int currentFigure = IDM_PEN;
 static int wheelDelta = 0;
+static int width = 1;
 static WCHAR textSymbols[MAX_LOADSTRING] = {};
+POINTS AllocateRect[2];
 BOOL fTracking = FALSE;
 BOOL fPolyline = FALSE;
-POINTS ptsBegin;
+BOOL fPrint = FALSE;
+BOOL fAllocate = FALSE;
+BOOL fPan = FALSE;
+int dx, dy;
+POINTS ptsBegin, pts;
 HMENU hMenu;
-HDC hdc;
-HDC memDC;
-HDC memDC2;
-HBITMAP memBM;
-HBITMAP memBM2;
-RECT lprect;
-HBRUSH Brush = CreateSolidBrush(RGB(255,255,255));
-HGDIOBJ hOldBush;
+HDC hdc, memDC, memDC2, memDCallocate;
+HBITMAP memBM, memBM2, memBMallocate;
+RECT lprect, tmprect;
+LOGBRUSH logbrush, oldlogbrush;
+HBRUSH Brush;
+HPEN Pen = CreatePen(NULL, 1, RGB(0,0,0));
+DWORD dColors[3]={255,222,222};
+COLORREF bcolor=RGB(0,0,0), pcolor=RGB(0,0,0);
 
 // Functions included in this module:
 ATOM				MyRegisterClass(HINSTANCE hInstance);
 BOOL				InitInstance(HINSTANCE, int);
 BOOL				GetSaveFile(HWND);
 BOOL				GetOpenFile(HWND);
+BOOL				PrintFile(HWND, POINTS, POINTS);
+BOOL				PenColor(HWND);
+BOOL				BrushColor(HWND);
+BOOL				PenWidth(int width);
+BOOL				InitDCs(HWND hWnd);
 LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
 int					MouseMoveAction(HWND, LPARAM);
@@ -157,27 +168,13 @@ BOOL GetSaveFile(HWND hWnd)
 	int iWidthPels = GetDeviceCaps(hdcRef, HORZRES); 
 	int iHeightPels = GetDeviceCaps(hdcRef, VERTRES); 
  
-	// Retrieve the coordinates of the client  
-	// rectangle, in pixels.  
- 
 	RECT rect;
 
-
 	rect = lprect;
-	//GetClientRect(hWnd, &rect); 
- 
-	// Convert client coordinates to .01-mm units.  
-	// Use iWidthMM, iWidthPels, iHeightMM, and  
-	// iHeightPels to determine the number of  
-	// .01-millimeter units per pixel in the x-  
-	//  and y-directions.  
- 
 	rect.left = (rect.left * iWidthMM * 100)/iWidthPels; 
 	rect.top = (rect.top * iHeightMM * 100)/iHeightPels; 
 	rect.right = (rect.right * iWidthMM * 100)/iWidthPels; 
 	rect.bottom = (rect.bottom * iHeightMM * 100)/iHeightPels; 
-
-
 
 	// Fill the OPENFILENAME structure
 	TCHAR szFilters[] = _T("Scribble Files (*.emf)\0*.emf\0\0");
@@ -238,6 +235,109 @@ BOOL GetOpenFile(HWND hWnd)
 
 	return TRUE;
 }
+BOOL PrintFile(HWND hWnd, POINTS ptsBegin, POINTS ptsEnd)
+{
+	PRINTDLG pd;
+
+	ZeroMemory(&pd, sizeof(pd));
+	pd.lStructSize = sizeof(pd);
+	pd.hwndOwner = hWnd;
+	pd.hDevMode = NULL;
+	pd.hDevNames = NULL;
+	pd.Flags = PD_RETURNDC | PD_NOSELECTION | PD_PRINTTOFILE | PD_NOPAGENUMS;
+	pd.nMinPage = 1;
+	pd.nMaxPage = 1;
+	pd.nCopies = 1;
+
+	if (PrintDlg(&pd) == TRUE)
+	{
+		DOCINFO doc;
+		GlobalUnlock(pd.hDevMode);
+		DEVNAMES * pdn = (DEVNAMES *)GlobalLock(pd.hDevNames);
+		ZeroMemory(&doc, sizeof(doc));
+		doc.cbSize = sizeof(doc);
+		doc.lpszDatatype = _T("RAW");
+		doc.lpszOutput = (TCHAR *)pdn + pdn->wOutputOffset;
+		int lol = StartDoc(pd.hDC, &doc);
+		StartPage(pd.hDC);
+		BitBlt(pd.hDC, 0, 0, ptsEnd.x - ptsBegin.x, ptsEnd.y - ptsBegin.y, memDC2, ptsBegin.x, ptsBegin.y, SRCCOPY);
+		EndPage(pd.hDC);
+		EndDoc(pd.hDC);
+		DeleteDC(pd.hDC);
+	}
+	return TRUE;
+}
+
+BOOL PenColor(HWND hWnd)
+{
+	CHOOSECOLOR cc;
+
+	cc.Flags=CC_RGBINIT|CC_FULLOPEN;
+	cc.hInstance = NULL;
+	cc.hwndOwner = hWnd;
+	cc.lCustData = 0L;
+	cc.lpCustColors = dColors;
+	cc.lpfnHook = NULL;
+	cc.lpTemplateName = NULL;
+	cc.lStructSize = sizeof(cc);
+	cc.rgbResult = RGB(255,0,0);
+
+	if(ChooseColor(&cc))
+		pcolor = (COLORREF)cc.rgbResult;
+
+	Pen = CreatePen(NULL, width, pcolor);
+	SelectObject( memDC2, Pen );
+	return TRUE;
+}
+BOOL BrushColor(HWND hWnd)
+{
+	CHOOSECOLOR cc;
+
+	cc.Flags=CC_RGBINIT|CC_FULLOPEN;
+	cc.hInstance = NULL;
+	cc.hwndOwner = hWnd;
+	cc.lCustData = 0L;
+	cc.lpCustColors = dColors;
+	cc.lpfnHook = NULL;
+	cc.lpTemplateName = NULL;
+	cc.lStructSize = sizeof(cc);
+	cc.rgbResult = RGB(255,0,0);
+
+	if(ChooseColor(&cc))
+		bcolor = (COLORREF)cc.rgbResult;
+
+	logbrush.lbColor = bcolor;
+	logbrush.lbStyle = BS_SOLID;
+	oldlogbrush = logbrush;
+	Brush = CreateBrushIndirect(&logbrush);
+	SelectObject( memDC2, Brush );
+	return TRUE;
+}
+BOOL PenWidth(int w)
+{
+	width = w;
+	Pen = CreatePen(NULL, w, pcolor);
+	SelectObject( memDC2, Pen );
+	return TRUE;
+}
+BOOL InitDCs(HWND hWnd)
+{
+	hdc = GetDC(hWnd);					// retrieves a handle to a device context (DC) for the client area
+	memDC = CreateCompatibleDC(hdc);
+	memDC2 = CreateCompatibleDC(hdc);
+	memDCallocate = CreateCompatibleDC(hdc);
+	GetClientRect(hWnd, &lprect);
+	memBM = CreateCompatibleBitmap(hdc, lprect.right, lprect.bottom);
+	memBM2 = CreateCompatibleBitmap(hdc, lprect.right, lprect.bottom);
+	memBMallocate = CreateCompatibleBitmap(hdc, lprect.right, lprect.bottom); 
+	SelectObject (memDC, memBM); 
+	SelectObject (memDC2, memBM2);
+	SelectObject (memDCallocate, memBMallocate);
+	FillRect(memDC,&lprect, Brush);
+	FillRect(memDC2,&lprect, Brush);
+	FillRect(memDCallocate,&lprect, Brush);
+	return TRUE;
+}
 
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
@@ -257,16 +357,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 	case WM_CREATE:
 		hMenu = GetMenu(hWnd);
-        hdc = GetDC(hWnd);					// retrieves a handle to a device context (DC) for the client area
-		memDC = CreateCompatibleDC(hdc);
-		memDC2 = CreateCompatibleDC(hdc);
-		GetClientRect(hWnd, &lprect);
-		memBM = CreateCompatibleBitmap(hdc, lprect.right, lprect.bottom);
-		memBM2 = CreateCompatibleBitmap(hdc, lprect.right, lprect.bottom);
-		SelectObject (memDC, memBM);
-		SelectObject (memDC2, memBM2);
-		FillRect(memDC,&lprect, Brush);
-		FillRect(memDC2,&lprect, Brush);
+		InitDCs(hWnd);
+		logbrush.lbColor = RGB(255,255,255);
+		logbrush.lbStyle = BS_HOLLOW;
+		logbrush.lbHatch = NULL;
+		oldlogbrush = logbrush;
+		Brush = CreateBrushIndirect(&logbrush);
+		SelectObject( memDC2, Brush );
+		SelectObject( memDC2, Pen );
+		PenWidth(1);
 		ps.hdc = hdc;
 		ps.rcPaint = lprect;
 		ps.fErase = true;
@@ -284,18 +383,85 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		fTracking = TRUE;
 		memset(textSymbols, 0, MAX_LOADSTRING);
 		if (!fPolyline) ptsBegin = MAKEPOINTS(lParam);			// get the begin coords in POINTS format
+		if (fPan)
+		{
+			fAllocate = FALSE;
+			if (ptsBegin.x < AllocateRect[1].x && ptsBegin.x > AllocateRect[0].x && ptsBegin.y < AllocateRect[1].y && ptsBegin.y > AllocateRect[0].y) //if in AllocateRect
+			{
+				BitBlt(memDC2, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
+				BitBlt(memDCallocate, 0, 0, AllocateRect[1].x - AllocateRect[0].x, AllocateRect[1].y - AllocateRect[0].y, 
+					   memDC2, AllocateRect[0].x, AllocateRect[0].y, SRCCOPY);
+				logbrush.lbColor = RGB(255, 255, 255);
+				logbrush.lbStyle = BS_SOLID;
+				Brush = CreateBrushIndirect(&logbrush);
+				SelectObject( memDC2, Brush );
+				tmprect.left = AllocateRect[0].x;
+				tmprect.top = AllocateRect[0].y;
+				tmprect.right = AllocateRect[1].x;
+				tmprect.bottom = AllocateRect[1].y;
+				FillRect(memDC2,&tmprect, Brush);
+				FillRect(memDC,&tmprect, Brush);
+				dx = ptsBegin.x - AllocateRect[0].x;
+				dy = ptsBegin.y - AllocateRect[0].y;
+				logbrush.lbStyle = BS_HOLLOW;
+				Brush = CreateBrushIndirect(&logbrush);
+				SelectObject( memDC2, Brush );
+			}
+		}
 		break;
 	case WM_MOUSEMOVE:
 		if (fTracking)
 		{
-			MouseMoveAction(hWnd, lParam);
+			pts = MAKEPOINTS(lParam);
+			if (fPrint || fAllocate)
+			{
+				BitBlt(memDC2, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
+				Rectangle(memDC2, ptsBegin.x, ptsBegin.y, pts.x, pts.y);
+				InvalidateRect(hWnd,&lprect,false);
+				UpdateWindow(hWnd);
+			}
+			else
+			{
+				if (fPan)
+				{
+					BitBlt(memDC2, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
+					BitBlt(memDC2, pts.x - dx, pts.y - dy, AllocateRect[1].x - AllocateRect[0].x, AllocateRect[1].y - AllocateRect[0].y, memDCallocate, 0, 0, SRCCOPY);
+					InvalidateRect(hWnd,&lprect,false);
+					UpdateWindow(hWnd);
+				}
+				else
+					MouseMoveAction(hWnd, lParam);
+			}
 		}
 		break;
 	case WM_LBUTTONUP:
-		BitBlt(memDC, 0, 0, lprect.right, lprect.bottom, memDC2, 0, 0, SRCCOPY);
         fTracking = FALSE;
+		if (fPrint)
+		{
+			BitBlt(memDC2, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
+			PrintFile(hWnd, ptsBegin, MAKEPOINTS(lParam));
+			fPrint = FALSE;
+			Pen = CreatePen(NULL, width, pcolor);
+			SelectObject( memDC2, Pen );
+			Brush = CreateBrushIndirect(&oldlogbrush);
+			SelectObject( memDC2, Brush );
+		}
+		if (fPan)
+			fPan = FALSE;
+		if (fAllocate)
+		{
+			AllocateRect[0] = ptsBegin;
+			AllocateRect[1] =  MAKEPOINTS(lParam);
+			fPan = TRUE;
+			Pen = CreatePen(NULL, width, pcolor);
+			SelectObject( memDC2, Pen );
+			Brush = CreateBrushIndirect(&oldlogbrush);
+			SelectObject( memDC2, Brush );
+		}
 		if (fPolyline)
 			ptsBegin = MAKEPOINTS(lParam);
+		if (!fAllocate) 
+			BitBlt(memDC, 0, 0, lprect.right, lprect.bottom, memDC2, 0, 0, SRCCOPY);
         ClipCursor(NULL);						// free cursor
         ReleaseCapture();
 		InvalidateRect(hWnd,&lprect,false);
@@ -304,14 +470,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		fPolyline = FALSE;
 		BitBlt(memDC, 0, 0, lprect.right, lprect.bottom, memDC2, 0, 0, SRCCOPY);
 		InvalidateRect(hWnd,&lprect,false);
-		break;
+		return 0;
 	case WM_MOUSEWHEEL:
 		if (GET_WHEEL_DELTA_WPARAM(wParam) < 0)
 			wheelDelta += 10;
 		else 
 			wheelDelta -= 10;
-		Brush = ( HBRUSH ) GetStockObject( WHITE_BRUSH );
-		hOldBush = SelectObject( memDC2, Brush );
+		logbrush.lbColor = RGB(255, 255, 255);
+		logbrush.lbStyle = BS_SOLID;
+		Brush = CreateBrushIndirect(&logbrush);
+		SelectObject( memDC2, Brush );
 		FillRect(memDC2,&lprect, Brush);
 		StretchBlt(memDC2, 0, 0, lprect.right + wheelDelta , lprect.bottom + lprect.bottom*wheelDelta/lprect.right, memDC, 0, 0, lprect.right, lprect.bottom, SRCCOPY);
 		InvalidateRect(hWnd,&lprect,false);
@@ -325,6 +493,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	case WM_DESTROY:
+		DeleteObject(Brush);
 		ReleaseDC(hWnd, hdc);				// free DC
 		ReleaseDC(hWnd, memDC);				// free memDC
 		ReleaseDC(hWnd, memDC2);			// free memDC2
@@ -361,8 +530,6 @@ int MouseMoveAction(HWND hWnd, LPARAM lParam)
 
 	ptsEnd = MAKEPOINTS(lParam);		// get the end coords in POINTS format
 	MoveToEx(memDC2, ptsBegin.x, ptsBegin.y, (LPPOINT) NULL);
-	Brush = ( HBRUSH ) GetStockObject( HOLLOW_BRUSH );
-	hOldBush = SelectObject( memDC2, Brush );
 
 	switch (currentFigure)
 	{
@@ -403,18 +570,6 @@ int MouseMoveAction(HWND hWnd, LPARAM lParam)
 		BitBlt(memDC2, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
 		Polygon6(ptsEnd);
 		break;
-	case IDM_TEXT:
-		//BitBlt(memDC2, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
-		//TextOut(memDC2, 10, 10, TEXT("MYTEXTTEXT"), 16);
-		//DrawText(memDC2, TEXT("MYTEXTTEXT"), -1, &lprect, DT_SINGLELINE | DT_CENTER | DT_VCENTER);
-		break;
-	case IDM_CLEAR:
-		Brush = ( HBRUSH ) GetStockObject( WHITE_BRUSH );
-		hOldBush = SelectObject( memDC2, Brush );
-		FillRect(memDC2, &lprect, Brush);
-		FillRect(memDC, &lprect, Brush);
-		BitBlt(memDC, 0, 0, lprect.right, lprect.bottom, memDC2, 0, 0, SRCCOPY);
-		break;
 	}
 	InvalidateRect(hWnd,&lprect,false);
 	UpdateWindow(hWnd);
@@ -438,8 +593,9 @@ int	TextDrawAction(HWND hWnd, WPARAM wParam, LPARAM lParam)
 		i++;
 	}
 	LPSTR str = (LPSTR)textSymbols;
-	Brush = (HBRUSH)GetStockObject(HOLLOW_BRUSH);
-	hOldBush = SelectObject(memDC2, Brush);
+	logbrush.lbStyle = BS_HOLLOW;
+	Brush = CreateBrushIndirect(&logbrush);
+	SelectObject( memDC2, Brush );
 	RECT textRect;
 
 	textRect.left = ptsBegin.x;
@@ -448,8 +604,9 @@ int	TextDrawAction(HWND hWnd, WPARAM wParam, LPARAM lParam)
 	textRect.bottom = ptsBegin.y + 30;
 
 	FillRect(memDC2, &textRect, Brush);
-	Brush = (HBRUSH)GetStockObject(HOLLOW_BRUSH);
-	hOldBush = SelectObject(memDC2, Brush);
+	logbrush.lbStyle = BS_HOLLOW;
+	Brush = CreateBrushIndirect(&logbrush);
+	SelectObject( memDC2, Brush );
 	DrawText(memDC2,(LPCWSTR)str, -1, &textRect, DT_LEFT);
 	BitBlt(memDC2, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCAND);
 	BitBlt(memDC, 0, 0, lprect.right, lprect.bottom, memDC2, 0, 0, SRCCOPY);
@@ -467,45 +624,83 @@ int CommandCase(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	currentFigure = wmId;
 	switch (wmId)
 	{
+	case IDM_PEN:		
+	case IDM_POLYLINE:		
+	case IDM_LINE:		
+	case IDM_ELLIPSE:		
+	case IDM_RECTANGLE:		
+	case IDM_P3:		
+	case IDM_P4:		
+	case IDM_P5:	
+	case IDM_P6:
+		fPolyline = FALSE;
+		fPrint = FALSE;
+		fPan = FALSE;
+		fAllocate = FALSE;
+		Pen = CreatePen(NULL, width, pcolor);
+		SelectObject( memDC2, Pen );
+		Brush = CreateBrushIndirect(&oldlogbrush);
+		SelectObject( memDC2, Brush );
+		BitBlt(memDC2, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, SRCCOPY);
+		break;
 	case IDM_ABOUT:
 		DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
 		break;
 	case IDM_EXIT:
-		DestroyWindow(hWnd);
-		break;
-	case IDM_PEN:
-	case IDM_TEXT:
-			/*CheckMenuRadioItem(hMenu, IDM_PEN, IDM_TEXT, wmId, MF_BYCOMMAND);
-			break;*/
-	case IDM_LINE:
-	case IDM_POLYLINE:
-	case IDM_ELLIPSE:
-	case IDM_RECTANGLE:
-		/*CheckMenuRadioItem(hMenu, IDM_LINE, IDM_RECTANGLE, wmId, MF_BYCOMMAND);
-		break;*/
-	case IDM_P3:
-	case IDM_P4:
-	case IDM_P5:
-	case IDM_P6:
-		/*CheckMenuRadioItem(hMenu, IDM_P3, IDM_P6, wmId, MF_BYCOMMAND);
-		break;*/
+		DestroyWindow(hWnd);	
 		break;
 	case IDM_SAVE:
-		{
-			// Open the file save dialog, and choose the file name
-			GetSaveFile(hWnd);
-			break;
-
-		}
+		GetSaveFile(hWnd);
+		break;
 	case IDM_OPEN:
-		{
-			GetOpenFile(hWnd);
-			break;
-		}
+		GetOpenFile(hWnd);
+		break;
+	case IDM_ALLOCATE:
+		fAllocate = TRUE;
+		Pen = CreatePen(PS_DASH, 1, RGB(128, 128, 128));
+	    SelectObject( memDC2, Pen );
+		logbrush.lbStyle = BS_HOLLOW;
+		Brush = CreateBrushIndirect(&logbrush);
+		SelectObject( memDC2, Brush );
+		break;
+	case IDM_PRINT:
+		fPrint = TRUE;
+		Pen = CreatePen(PS_DASH, 1, RGB(128, 128, 128));
+	    SelectObject( memDC2, Pen );
+		logbrush.lbStyle = BS_HOLLOW;
+		Brush = CreateBrushIndirect(&logbrush);
+		SelectObject( memDC2, Brush );
+		break;
+	case IDM_CLEAR:
+		logbrush.lbColor = RGB(255, 255, 255);
+		logbrush.lbStyle = BS_SOLID;
+		Brush = CreateBrushIndirect(&logbrush);
+		SelectObject( memDC2, Brush );
+		FillRect(memDC2, &lprect, Brush);
+		BitBlt(memDC, 0, 0, lprect.right, lprect.bottom, memDC2, 0, 0, SRCCOPY);
+		InvalidateRect(hWnd, &lprect, false);
+		break;
+	case IDM_COLORPEN:
+		PenColor(hWnd);
+		break;
+	case IDM_COLORBRUSH:
+		BrushColor(hWnd);
+		break;
+	case IDM_W1:
+		PenWidth(1);
+		break;
+	case IDM_W2:
+		PenWidth(2);
+		break;
+	case IDM_W3:
+		PenWidth(3);
+		break;
+	case IDM_W4:
+		PenWidth(4);
+		break;
 	default:
 		return DefWindowProc(hWnd, message, wParam, lParam);
 	}
-	//CheckMenuRadioItem(hMenu, IDM_LINE, IDM_RECTANGLE, wmId, MF_BYCOMMAND);
 }
 int Polygon3(POINTS ptsEnd)
 {
@@ -559,8 +754,3 @@ int Polygon6(POINTS ptsEnd)
 
 	return 0;
 }
-//int onScrollUp()
-//{
-//	StretchBlt(memDC2, 0, 0, lprect.right, lprect.bottom, memDC, 0, 0, lprect.right*wheelDelta, lprect.bottom*wheelDelta, SRCCOPY);
-//	return 0;
-//}

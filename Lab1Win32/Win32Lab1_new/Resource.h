@@ -30,6 +30,7 @@
 #define IDM_W2 1020
 #define IDM_W3 1021
 #define IDM_W4 1022
+#define IDM_ALLOCATE 1023
 
 #define IDM_ABOUT				104
 #define IDM_EXIT				105
