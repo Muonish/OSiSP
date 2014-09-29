@@ -7,13 +7,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <tchar.h>
+#include <atltime.h>
 #include <math.h>
 #include <commdlg.h>
 
-
-
 #define PI 3.14159265358979323846
-
+#define ID_TIMER 120
 
 #define MAX_LOADSTRING 100
 
@@ -34,8 +33,8 @@ BOOL fPan = FALSE;
 int dx, dy;
 POINTS ptsBegin, pts;
 HMENU hMenu;
-HDC hdc, memDC, memDC2, memDCallocate;
-HBITMAP memBM, memBM2, memBMallocate;
+HDC hdc, memDC, memDC2, memDCallocate, memDCclock, memDChand;
+HBITMAP memBM, memBM2, memBMallocate, memBMclock, memBMhand;
 RECT lprect, tmprect;
 LOGBRUSH logbrush, oldlogbrush;
 HBRUSH Brush;
@@ -52,9 +51,11 @@ BOOL				PrintFile(HWND, POINTS, POINTS);
 BOOL				PenColor(HWND);
 BOOL				BrushColor(HWND);
 BOOL				PenWidth(int width);
+BOOL				InitTimer(HWND);
 BOOL				InitDCs(HWND hWnd);
 LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
+LRESULT CALLBACK ColorProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 int					MouseMoveAction(HWND, LPARAM);
 int					TextDrawAction(HWND, WPARAM, LPARAM);
 int					CommandCase(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
@@ -62,6 +63,7 @@ int					Polygon3(POINTS);
 int					Polygon4(POINTS);
 int					Polygon5(POINTS);
 int					Polygon6(POINTS);
+int					ClockHandPosition(HWND);
 
 int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -125,7 +127,6 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 
 	return RegisterClassEx(&wcex);
 }
-
 //
 //   FUNCTION: InitInstance(HINSTANCE, int)
 //
@@ -257,10 +258,10 @@ BOOL PrintFile(HWND hWnd, POINTS ptsBegin, POINTS ptsEnd)
 		ZeroMemory(&doc, sizeof(doc));
 		doc.cbSize = sizeof(doc);
 		doc.lpszDatatype = _T("RAW");
-		doc.lpszOutput = (TCHAR *)pdn + pdn->wOutputOffset;
+		doc.lpszOutput = NULL;
 		int lol = StartDoc(pd.hDC, &doc);
 		StartPage(pd.hDC);
-		BitBlt(pd.hDC, 0, 0, ptsEnd.x - ptsBegin.x, ptsEnd.y - ptsBegin.y, memDC2, ptsBegin.x, ptsBegin.y, SRCCOPY);
+		StretchBlt(pd.hDC, 0, 0, ptsEnd.x - ptsBegin.x, ptsEnd.y - ptsBegin.y, memDC2, ptsBegin.x, ptsBegin.y,ptsEnd.x - ptsBegin.x,ptsEnd.y - ptsBegin.y, SRCCOPY);
 		EndPage(pd.hDC);
 		EndDoc(pd.hDC);
 		DeleteDC(pd.hDC);
@@ -320,22 +321,34 @@ BOOL PenWidth(int w)
 	SelectObject( memDC2, Pen );
 	return TRUE;
 }
+BOOL InitTimer(HWND hWnd)
+{
+	SetTimer(hWnd, ID_TIMER, 500, NULL);
+	return TRUE;
+}
 BOOL InitDCs(HWND hWnd)
 {
 	hdc = GetDC(hWnd);					// retrieves a handle to a device context (DC) for the client area
 	memDC = CreateCompatibleDC(hdc);
 	memDC2 = CreateCompatibleDC(hdc);
 	memDCallocate = CreateCompatibleDC(hdc);
+	memDCclock = CreateCompatibleDC(hdc);
+	memDChand = CreateCompatibleDC(hdc);
 	GetClientRect(hWnd, &lprect);
 	memBM = CreateCompatibleBitmap(hdc, lprect.right, lprect.bottom);
 	memBM2 = CreateCompatibleBitmap(hdc, lprect.right, lprect.bottom);
 	memBMallocate = CreateCompatibleBitmap(hdc, lprect.right, lprect.bottom); 
+	memBMclock = (HBITMAP)LoadImage(NULL, L"imclock.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+	memBMhand = CreateCompatibleBitmap(hdc, 300, 300);
 	SelectObject (memDC, memBM); 
 	SelectObject (memDC2, memBM2);
 	SelectObject (memDCallocate, memBMallocate);
+	SelectObject (memDCclock, memBMclock);
+	SelectObject (memDChand, memBMhand);
 	FillRect(memDC,&lprect, Brush);
 	FillRect(memDC2,&lprect, Brush);
 	FillRect(memDCallocate,&lprect, Brush);
+	FillRect(memDChand,&lprect, Brush);
 	return TRUE;
 }
 
@@ -358,6 +371,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_CREATE:
 		hMenu = GetMenu(hWnd);
 		InitDCs(hWnd);
+		InitTimer(hWnd);
 		logbrush.lbColor = RGB(255,255,255);
 		logbrush.lbStyle = BS_HOLLOW;
 		logbrush.lbHatch = NULL;
@@ -373,9 +387,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_COMMAND:
 		CommandCase(hWnd, message, wParam, lParam);
 		break;
+	case WM_TIMER:
+		ClockHandPosition(hWnd);
+		break;
 	case WM_PAINT:
 		hdc = BeginPaint(hWnd, &ps);
 		BitBlt(hdc, 0, 0, lprect.right, lprect.bottom, memDC2, 0, 0, SRCCOPY);
+		BitBlt(hdc, lprect.right - 300, 0, lprect.right, lprect.bottom, memDCclock, 0, 0, SRCAND);
+		BitBlt(hdc, lprect.right - 300, 0, lprect.right, lprect.bottom, memDChand, 0, 0, SRCAND);
 		EndPaint(hWnd, &ps);
 		break;
 	case WM_LBUTTONDOWN:
@@ -495,8 +514,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_DESTROY:
 		DeleteObject(Brush);
 		ReleaseDC(hWnd, hdc);				// free DC
-		ReleaseDC(hWnd, memDC);				// free memDC
-		ReleaseDC(hWnd, memDC2);			// free memDC2
+		ReleaseDC(hWnd, memDC);
+		ReleaseDC(hWnd, memDC2);
+		ReleaseDC(hWnd, memDCallocate);
+		ReleaseDC(hWnd, memDCclock);
+		ReleaseDC(hWnd, memDChand);
+		KillTimer(hWnd, ID_TIMER);
 		PostQuitMessage(0);
 		break;
 	default:
@@ -754,3 +777,50 @@ int Polygon6(POINTS ptsEnd)
 
 	return 0;
 }
+int ClockHandPosition(HWND hWnd)
+{
+	CTime t = CTime::GetCurrentTime();
+ 
+    double m_Second = t.GetSecond() /** 6*/;
+    double m_Minute = t.GetMinute() /** 6*/;
+    double m_Hour = t.GetHour()/* * 30 + m_Minute/12*/;
+	int cX = 150;
+	int cY = 150;
+	double tmpX;
+	double tmpY;
+	
+	LOGBRUSH l;
+	l.lbColor = RGB(255,255,255);
+	l.lbStyle = BS_SOLID;
+	l.lbHatch = NULL;
+	HBRUSH B = CreateBrushIndirect(&l);
+	SelectObject( memDChand, B );
+	FillRect(memDChand,&lprect, B);
+
+	HPEN P = CreatePen(NULL, 4, RGB(0,0,0));
+	SelectObject( memDChand, P );
+	MoveToEx(memDChand, cX, cY, (LPPOINT) NULL);
+	tmpX = cX + sin((double)(2 * PI * (12 * 60 + m_Minute) / m_Hour / 60))*70;
+	tmpY = cY - cos((double)(2 * PI * (12 * 60 + m_Minute) / m_Hour / 60))*70 ;
+	LineTo(memDChand, tmpX, tmpY);
+
+	tmpX = cX + sin((double)(2 * PI * m_Minute / 60))*100;
+	tmpY = cY - cos((double)(2 * PI * m_Minute / 60))*100;
+	MoveToEx(memDChand, cX, cY, (LPPOINT) NULL);
+	LineTo(memDChand, tmpX, tmpY);
+
+	P = CreatePen(NULL, 1, RGB(0,0,0));
+	SelectObject( memDChand, P );
+	MoveToEx(memDChand, cX, cY, (LPPOINT) NULL);
+	tmpX = cX + sin((double)(2.0 * PI * m_Second / 60.0))*100;
+	tmpY = cY - cos((double)(2.0 * PI * m_Second / 60.0))*100;
+	LineTo(memDChand, tmpX, tmpY);
+
+	InvalidateRect(hWnd,&lprect,false);
+	UpdateWindow(hWnd);
+
+	DeleteObject(P);
+	DeleteObject(B);
+	return 0;
+}
+
