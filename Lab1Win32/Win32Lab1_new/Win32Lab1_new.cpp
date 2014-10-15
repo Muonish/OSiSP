@@ -781,9 +781,9 @@ int ClockHandPosition(HWND hWnd)
 {
 	CTime t = CTime::GetCurrentTime();
  
-    double m_Second = t.GetSecond() /** 6*/;
-    double m_Minute = t.GetMinute() /** 6*/;
-    double m_Hour = t.GetHour()/* * 30 + m_Minute/12*/;
+    double m_Second = t.GetSecond();
+    double m_Minute = t.GetMinute();
+	double m_Hour = (t.GetHour() % 12) + 2;
 	int cX = 150;
 	int cY = 150;
 	double tmpX;
@@ -800,9 +800,8 @@ int ClockHandPosition(HWND hWnd)
 	HPEN P = CreatePen(NULL, 4, RGB(0,0,0));
 	SelectObject( memDChand, P );
 	MoveToEx(memDChand, cX, cY, (LPPOINT) NULL);
-	tmpX = cX + sin((double)(2 * PI * (12 * 60 + m_Minute) / m_Hour / 60))*70;
-	tmpY = cY - cos((double)(2 * PI * (12 * 60 + m_Minute) / m_Hour / 60))*70 ;
-	LineTo(memDChand, tmpX, tmpY);
+	LineTo(memDChand, cX + sin((double)(2 * PI * (12 * 60 + m_Minute) / m_Hour / 60))*70, 
+					  cY - cos((double)(2 * PI * (12 * 60 + m_Minute) / m_Hour / 60))*70);
 
 	tmpX = cX + sin((double)(2 * PI * m_Minute / 60))*100;
 	tmpY = cY - cos((double)(2 * PI * m_Minute / 60))*100;
