@@ -13,9 +13,9 @@
 
 #define DEFAULT_N_THREAD 10
 
-//using namespace std;
 void TaskFunction(void*);
 static DWORD WINAPI MainThreadFunction(PVOID pvParam);
+ThreadPool *pool;
 int Nthread;
 int Ntask;
 
@@ -38,35 +38,34 @@ int _tmain(int argc, _TCHAR* argv[])
 void TaskFunction(void* param)
 {
 	int *i = (int*)param;
-	long id = GetCurrentThreadId();
 	int runtime = rand() % 10;
 
 	if (runtime == 0)
 	{
-		printf("id %5d: ERROR: task number %3d is failed\n", id, *i);
+		pool->AddLog("id " + std::to_string(GetCurrentThreadId()) + ": ERROR: task number " + std::to_string(*i) + " is failed");
 	}
 	else
 	{
 		Sleep(runtime * 10);
-		printf("id %5d: task number %3d is complited\n", id, *i);
+		pool->AddLog("id " + std::to_string(GetCurrentThreadId()) + ": task number " + std::to_string(*i) + " is complited");
 	}
 }
 
 DWORD WINAPI MainThreadFunction(PVOID pvParam)
 {
-	ThreadPool pool(Nthread); 
-	long id = GetCurrentThreadId();
+	pool = new ThreadPool(Nthread); 
 	int *mas = new int[Ntask];
 
 	for( int i = 0; i < Ntask; i++)
 		mas[i] = i+1;
 	for( int i = 0; i < Ntask; i++)
 	{
-		pool.AddTask(TaskFunction, &mas[i]);
-		printf("id %5d: task number %3d added to the queue\n", id, mas[i]);
-		//printf("id %5d: ERROR: all threads are busy\n", id);
+		pool->AddTask(TaskFunction, &mas[i]);
+		pool->AddLog( "id " + std::to_string(GetCurrentThreadId()) + ": task number " + std::to_string(mas[i]) + " added to the queue");
 	}
 	_getch();
+
+	delete pool;
 	delete[] mas;
 
 	return 0 ;

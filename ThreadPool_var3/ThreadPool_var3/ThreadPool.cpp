@@ -4,28 +4,30 @@
 
 ThreadPool::ThreadPool(int n)
 {
-	int Nthread = n;
-	long id = GetCurrentThreadId();
+	logFile.open("log.txt");
+	Nthread = n;
 	mutex = CreateMutex(NULL, false ,NULL);
-
-	threads = new HANDLE[Nthread];
+	mutexLog = CreateMutex(NULL, false ,NULL);
+	threadCounter = 0;
+	AddLog("Number of threads = " + to_string(Nthread));
 	for( int i = 0; i < Nthread; i++ )
 	{
-		threads[i] = CreateThread(NULL, 0, ThreadPool::ThreadFunction, this, 0, NULL);		
+		threads.push_back(CreateThread(NULL, 0, ThreadPool::ThreadFunction, this, 0, NULL));		
+		AddLog("id " + to_string(GetCurrentThreadId()) + ": create thread id = " + to_string(GetThreadId(threads[i])));
 	}
-	printf("=============Thread pool is created=============\n");
-	printf("id %5d: the number of threads is %d\n", id, Nthread);
+	AddLog("=============Thread pool is created=============");
 }
 
 ThreadPool::~ThreadPool(void)
 {
 	CloseHandle(mutex);
-	for( int i = 0; i < 10; i++ )
+	CloseHandle(mutexLog);
+	logFile.close();
+	for( int i = 0; i < Nthread; i++ )
 	{
 		TerminateThread(threads[i], NULL);
 		CloseHandle(threads[i]);
 	}
-	delete[] threads;
 }
 
 long ThreadPool::AddTask(FuncType newTask, void* newParameter)
@@ -36,8 +38,28 @@ long ThreadPool::AddTask(FuncType newTask, void* newParameter)
 
 	tasks.push(newTask);
 	parameters.push(newParameter);
+
+	if (threadCounter == Nthread)
+	{
+		AddLog("id " + to_string(GetCurrentThreadId()) + ": WARNING: all threads are busy");
+		AddThread();
+
+	}
 	ReleaseMutex(mutex);
 	return 0;
+}
+void ThreadPool::AddThread(void)
+{
+	threads.push_back(CreateThread(NULL, 0, ThreadPool::ThreadFunction, this, 0, NULL));
+	AddLog("id " + to_string(GetCurrentThreadId()) + ": create thread id = " + to_string(GetThreadId(threads.back())));
+	Nthread++;
+}
+
+void ThreadPool::AddLog(string s)
+{
+	WaitForSingleObject(mutexLog, INFINITE);
+	logFile << s << endl;
+	ReleaseMutex(mutexLog);
 }
 
 DWORD WINAPI  ThreadPool::ThreadFunction(PVOID pvParam)
@@ -52,14 +74,19 @@ DWORD WINAPI  ThreadPool::ThreadFunction(PVOID pvParam)
 		{
 			ReleaseMutex(me->mutex);
 			continue;
-			//printf("id %5d: ERROR: all threads are busy\n", id);
 		}
 		FuncType F = me->tasks.front();
 		me->tasks.pop();
 		void *parameter = me->parameters.front();
 		me->parameters.pop();
+
+		me->threadCounter++;
 		ReleaseMutex(me->mutex);
 		F(parameter);
+
+		WaitForSingleObject(me->mutex, INFINITE);
+		me->threadCounter--;
+		ReleaseMutex(me->mutex);
 	}
 	return 0;
 }
