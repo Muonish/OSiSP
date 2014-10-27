@@ -2,91 +2,157 @@
 #include "ThreadPool.h"
 
 
-ThreadPool::ThreadPool(int n)
+ThreadPool::ThreadPool(int min, int max)
 {
-	logFile.open("log.txt");
-	Nthread = n;
-	mutex = CreateMutex(NULL, false ,NULL);
-	mutexLog = CreateMutex(NULL, false ,NULL);
-	threadCounter = 0;
-	AddLog("Number of threads = " + to_string(Nthread));
-	for( int i = 0; i < Nthread; i++ )
-	{
-		threads.push_back(CreateThread(NULL, 0, ThreadPool::ThreadFunction, this, 0, NULL));		
-		AddLog("id " + to_string(GetCurrentThreadId()) + ": create thread id = " + to_string(GetThreadId(threads[i])));
-	}
-	AddLog("=============Thread pool is created=============");
+	NthreadMin = min;
+	NthreadMax = max;
+	
+	LOG(INFO) << "Minimum number of threads = " << to_string(NthreadMin);
+	LOG(INFO) << "Maximum number of threads = " << to_string(NthreadMax);
+
+	requestMutex = CreateMutex(NULL, true, NULL);
+
+	task = new TaskDispatcher(this);
+
 }
 
 ThreadPool::~ThreadPool(void)
 {
-	CloseHandle(mutex);
-	CloseHandle(mutexLog);
-	logFile.close();
-	for( int i = 0; i < Nthread; i++ )
-	{
-		TerminateThread(threads[i], NULL);
-		CloseHandle(threads[i]);
-	}
+	//for( int i = 0; i < NthreadMin; i++ )
+	//{
+	//	TerminateThread(threads[i], NULL);
+	//	CloseHandle(threads[i]);
+	//}
 }
 
-long ThreadPool::AddTask(FuncType newTask, void* newParameter)
+//void ThreadPool::AddThread(void)
+//{
+//	threads.push_back(CreateThread(NULL, 0, ThreadPool::ThreadFunction, this, 0, NULL));
+//	LOG(INFO) << "id " << to_string(GetCurrentThreadId()) << ": create thread id = " << to_string(GetThreadId(threads.back()));
+//	threadCounter++;
+//}
+
+
+
+
+
+ThreadPool::TaskDispatcher::TaskDispatcher(ThreadPool *p)
 {
-	long result = WaitForSingleObject(mutex, 10000000);
+	parent = p;
+	addMutex = CreateMutex(NULL, false ,NULL);
+}
+
+ThreadPool::TaskDispatcher::~TaskDispatcher(void)
+{
+	CloseHandle(addMutex);
+}
+
+bool ThreadPool::TaskDispatcher::add(FuncType newTask, void* newParameter)
+{
+	long result = WaitForSingleObject(addMutex, INFINITE);
+
 	if( result != WAIT_OBJECT_0 )
-		return -1;
-
-	tasks.push(newTask);
-	parameters.push(newParameter);
-
-	if (threadCounter == Nthread)
 	{
-		AddLog("id " + to_string(GetCurrentThreadId()) + ": WARNING: all threads are busy");
-		AddThread();
-
+		LOG(ERROR) << "mutex error";
+		return false;
 	}
-	ReleaseMutex(mutex);
-	return 0;
-}
-void ThreadPool::AddThread(void)
-{
-	threads.push_back(CreateThread(NULL, 0, ThreadPool::ThreadFunction, this, 0, NULL));
-	AddLog("id " + to_string(GetCurrentThreadId()) + ": create thread id = " + to_string(GetThreadId(threads.back())));
-	Nthread++;
+
+	TASKINFO newInfo;
+	newInfo.task = newTask;
+	newInfo.param = newParameter;
+
+	tasks.push(newInfo);
+
+	ReleaseMutex(parent->requestMutex);
+	ReleaseMutex(addMutex);
+	return true;
 }
 
-void ThreadPool::AddLog(string s)
+TASKINFO ThreadPool::TaskDispatcher::getTask()
 {
-	WaitForSingleObject(mutexLog, INFINITE);
-	logFile << s << endl;
-	ReleaseMutex(mutexLog);
-}
+	TASKINFO result = { 0 };
+	
+	WaitForSingleObject(addMutex, INFINITE);
 
-DWORD WINAPI  ThreadPool::ThreadFunction(PVOID pvParam)
-{
-	ThreadPool *me = (ThreadPool*)pvParam;
-	long id = GetCurrentThreadId();
-	while(true)
+	if (!tasks.empty())
 	{
-		WaitForSingleObject(me->mutex, INFINITE);
-
-		if (me->tasks.empty())
-		{
-			ReleaseMutex(me->mutex);
-			continue;
-		}
-		FuncType F = me->tasks.front();
-		me->tasks.pop();
-		void *parameter = me->parameters.front();
-		me->parameters.pop();
-
-		me->threadCounter++;
-		ReleaseMutex(me->mutex);
-		F(parameter);
-
-		WaitForSingleObject(me->mutex, INFINITE);
-		me->threadCounter--;
-		ReleaseMutex(me->mutex);
+		result = tasks.front();
+		tasks.pop();
 	}
-	return 0;
+	else
+		LOG(WARNING) << "QUEUE IS EMPTY!";
+	
+	ReleaseMutex(addMutex);
+	return result;
 }
+
+
+/* WORKER DISPATCHER */
+
+ThreadPool::WorkerDispatcher::WorkerDispatcher(ThreadPool *p)
+{
+	parent = p;
+
+
+	threadMain = CreateThread(NULL, 0, ThreadPool::WorkerDispatcher::threadWorkerDispatcher, this, 0, NULL);
+	//HARDCODE: CREATE MIN COUNT OF THREADS
+}
+
+ThreadPool::WorkerDispatcher::~WorkerDispatcher(void)
+{
+	//HARDCODE: DELETE ALL THREADS WORKERS
+	TerminateThread(threadMain, NULL);
+	CloseHandle(threadMain);
+}
+
+DWORD WINAPI ThreadPool::WorkerDispatcher::threadWorkerDispatcher(PVOID pvParam)
+{
+	ThreadPool::WorkerDispatcher *me = (ThreadPool::WorkerDispatcher *)pvParam;
+	ThreadPool *parent = me->parent;
+	TASKINFO currentTask;
+
+	while (true)
+	{
+		WaitForSingleObject(parent->requestMutex, INFINITE);
+
+		currentTask = parent->task->getTask();
+		//HARDCODE: CALL me->dispatch(currentTask);
+	}
+}
+
+
+
+
+
+
+
+//DWORD WINAPI ThreadPool::ThreadFunction(PVOID pvParam)
+//{
+//	ThreadPool *me = (ThreadPool*)pvParam;
+//	long id = GetCurrentThreadId();
+//	while(true)
+//	{
+//		WaitForSingleObject(me->mutex, INFINITE);
+//
+//		if (me->tasks.empty())
+//		{
+//			ReleaseMutex(me->mutex);
+//			continue;
+//		}
+//		FuncType F = me->tasks.front();
+//		me->tasks.pop();
+//		void *parameter = me->parameters.front();
+//		me->parameters.pop();
+//
+//		me->threadCounter++;
+//		ReleaseMutex(me->mutex);
+//		F(parameter);
+//
+//		WaitForSingleObject(me->mutex, INFINITE);
+//		me->threadCounter--;
+//		ReleaseMutex(me->mutex);
+//	}
+//	return 0;
+//}
+
+
