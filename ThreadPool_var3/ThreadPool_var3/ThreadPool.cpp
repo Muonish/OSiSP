@@ -10,9 +10,11 @@ ThreadPool::ThreadPool(int min, int max)
 	LOG(INFO) << "Minimum number of threads = " << to_string(NthreadMin);
 	LOG(INFO) << "Maximum number of threads = " << to_string(NthreadMax);
 
-	requestMutex = CreateMutex(NULL, true, NULL);
+	queueMutex = CreateMutex(NULL, false, NULL);
+	notEmptySemaphore = CreateSemaphore( NULL , 0, 1000, NULL);
 
-	task = new TaskDispatcher(this);
+	taskd = new TaskDispatcher(this);
+	workd = new WorkerDispatcher(this);
 
 }
 
@@ -23,69 +25,37 @@ ThreadPool::~ThreadPool(void)
 	//	TerminateThread(threads[i], NULL);
 	//	CloseHandle(threads[i]);
 	//}
+	delete taskd;
+	delete workd;
+	CloseHandle(queueMutex);
+	CloseHandle(notEmptySemaphore);
 }
-
-//void ThreadPool::AddThread(void)
-//{
-//	threads.push_back(CreateThread(NULL, 0, ThreadPool::ThreadFunction, this, 0, NULL));
-//	LOG(INFO) << "id " << to_string(GetCurrentThreadId()) << ": create thread id = " << to_string(GetThreadId(threads.back()));
-//	threadCounter++;
-//}
-
-
-
-
 
 ThreadPool::TaskDispatcher::TaskDispatcher(ThreadPool *p)
 {
 	parent = p;
-	addMutex = CreateMutex(NULL, false ,NULL);
 }
 
 ThreadPool::TaskDispatcher::~TaskDispatcher(void)
 {
-	CloseHandle(addMutex);
 }
 
 bool ThreadPool::TaskDispatcher::add(FuncType newTask, void* newParameter)
 {
-	long result = WaitForSingleObject(addMutex, INFINITE);
+	long oldState = 0;
 
-	if( result != WAIT_OBJECT_0 )
-	{
-		LOG(ERROR) << "mutex error";
-		return false;
-	}
+	WaitForSingleObject(parent->queueMutex, INFINITE);
 
 	TASKINFO newInfo;
-	newInfo.task = newTask;
+	newInfo.userFunction = newTask;
 	newInfo.param = newParameter;
 
-	tasks.push(newInfo);
-
-	ReleaseMutex(parent->requestMutex);
-	ReleaseMutex(addMutex);
+	parent->tasks.push(newInfo);
+	
+	ReleaseSemaphore(parent->notEmptySemaphore, 1, &oldState);
+	ReleaseMutex(parent->queueMutex);
 	return true;
 }
-
-TASKINFO ThreadPool::TaskDispatcher::getTask()
-{
-	TASKINFO result = { 0 };
-	
-	WaitForSingleObject(addMutex, INFINITE);
-
-	if (!tasks.empty())
-	{
-		result = tasks.front();
-		tasks.pop();
-	}
-	else
-		LOG(WARNING) << "QUEUE IS EMPTY!";
-	
-	ReleaseMutex(addMutex);
-	return result;
-}
-
 
 /* WORKER DISPATCHER */
 
@@ -93,16 +63,106 @@ ThreadPool::WorkerDispatcher::WorkerDispatcher(ThreadPool *p)
 {
 	parent = p;
 
+	TASKINFO emptyTask = {0};
+	for (int i = 0; i < p->NthreadMin; i++)
+		createWorker(&emptyTask);
 
 	threadMain = CreateThread(NULL, 0, ThreadPool::WorkerDispatcher::threadWorkerDispatcher, this, 0, NULL);
-	//HARDCODE: CREATE MIN COUNT OF THREADS
+	LOG(INFO) << "=============Thread pool is created=============";
 }
 
 ThreadPool::WorkerDispatcher::~WorkerDispatcher(void)
 {
-	//HARDCODE: DELETE ALL THREADS WORKERS
+	for (int i = 0; i < threads.size(); i++)
+	{
+		killWorker(&threads[i]);
+		threads.erase(threads.begin() + i);
+		i--;
+	}
 	TerminateThread(threadMain, NULL);
 	CloseHandle(threadMain);
+}
+
+TASKINFO ThreadPool::WorkerDispatcher::requestTask()
+{
+	TASKINFO result = {0};
+	
+	WaitForSingleObject(parent->queueMutex, INFINITE);
+
+	if (!parent->tasks.empty())
+	{
+		result = parent->tasks.front();
+		parent->tasks.pop();
+	}
+	else
+		LOG(WARNING) << "QUEUE IS EMPTY!";
+	
+	ReleaseMutex(parent->queueMutex);
+	return result;
+}
+
+void ThreadPool::WorkerDispatcher::lookAroundWorkers()
+{
+	int result = 0;
+
+	LOG(INFO) << "!!!!!!!!!!!!!lookAroundWorkers!!!!!!!!!!!!!!!";
+	for (int i = 0; i < threads.size(); i++)
+	{
+		if ((threads[i].currentState == DEAD) || ( threads.size() > parent->NthreadMin&& threads[i].currentState == CAN_WORK) )
+		switch (threads[i].currentState)
+		{
+		case DEAD:
+			killWorker(&threads[i]);
+			threads.erase(threads.begin() + i);
+			i--;
+			break;
+		case CAN_WORK:
+			if (threads.size() > parent->NthreadMin)
+				threads[i].currentState = WILL_DIE;
+		}
+	}
+}
+
+void ThreadPool::WorkerDispatcher::dispatch(TASKINFO *newTask)
+{
+	bool noFreeWorkers = true;
+	long oldState = 0;
+
+	LOG(INFO) << "!!!!!!!!!!!!!dispatch!!!!!!!!!!!!!!!";
+	for (int i = 0; i < threads.size(); i++)
+	{
+		if (threads[i].currentState == CAN_WORK || threads[i].currentState == WILL_DIE )
+		{
+			threads[i].task = *newTask;
+			ReleaseSemaphore(threads[i].semaphore, 1, &oldState);
+			noFreeWorkers = false;
+		}
+	}
+	if (noFreeWorkers)
+		createWorker(newTask);
+}
+
+void ThreadPool::WorkerDispatcher::createWorker(TASKINFO *newTask)
+{
+	WORKER tmp = { 0 };
+
+	threads.push_back(tmp);
+
+	threads.back().task.userFunction = newTask->userFunction;
+	threads.back().task.param = newTask->param;
+	threads.back().currentState = CAN_WORK;
+	threads.back().semaphore = CreateSemaphore( NULL , 0, 1000, NULL);
+	threads.back().thread = CreateThread(NULL, 0, ThreadPool::WorkerDispatcher::threadWorker, &(threads.back()), 0, NULL);
+	LOG(INFO) << "id "<< GetCurrentThreadId() << ": create thread: id = " << GetThreadId(threads.back().thread);
+	
+	if (threads.size() > parent->NthreadMax)
+			LOG(WARNING) << "EXCEEDED THE MAX N OF THREADS!";
+}
+
+void ThreadPool::WorkerDispatcher::killWorker(WORKER *target)
+{
+	CloseHandle(target->semaphore);
+	CloseHandle(target->thread);
 }
 
 DWORD WINAPI ThreadPool::WorkerDispatcher::threadWorkerDispatcher(PVOID pvParam)
@@ -111,48 +171,47 @@ DWORD WINAPI ThreadPool::WorkerDispatcher::threadWorkerDispatcher(PVOID pvParam)
 	ThreadPool *parent = me->parent;
 	TASKINFO currentTask;
 
+	LOG(INFO) << "id "<< GetCurrentThreadId() << ": worker dispatcher thread created";
+
 	while (true)
 	{
-		WaitForSingleObject(parent->requestMutex, INFINITE);
+		WaitForSingleObject(parent->notEmptySemaphore, INFINITE);
 
-		currentTask = parent->task->getTask();
-		//HARDCODE: CALL me->dispatch(currentTask);
+		/*for (int i = 0; i < me->threads.size(); i++)
+		{
+			LOG(INFO) << i << ": curState=" << me->threads[i].currentState << " : thread=" << me->threads[i].thread; 
+		}*/
+		currentTask = me->requestTask();
+		me->lookAroundWorkers();
+		me->dispatch(&currentTask);
 	}
+	return 0;
 }
 
+DWORD WINAPI ThreadPool::WorkerDispatcher::threadWorker(PVOID pvParam)
+{
+	ThreadPool::WorkerDispatcher::WORKER *me = (ThreadPool::WorkerDispatcher::WORKER *)pvParam;
 
+	while (true)
+	{
+		LOG(INFO) << "!!!!!!!!!!!!!threadWorker!!!!!!!!!!!!!!!";
+		State instruction = me->currentState;  //save instruction from WD
+		me->currentState = BUSY;
 
+		FuncType F = me->task.userFunction;
+		if (F != NULL)	
+			F(me->task.param);
 
+		if (instruction == WILL_DIE)
+		{
+			me->currentState = DEAD;
+			return 0;
+		}
 
+		me->currentState = CAN_WORK;
+		WaitForSingleObject(me->semaphore, INFINITE);   //wait for next task
+	}
 
-
-//DWORD WINAPI ThreadPool::ThreadFunction(PVOID pvParam)
-//{
-//	ThreadPool *me = (ThreadPool*)pvParam;
-//	long id = GetCurrentThreadId();
-//	while(true)
-//	{
-//		WaitForSingleObject(me->mutex, INFINITE);
-//
-//		if (me->tasks.empty())
-//		{
-//			ReleaseMutex(me->mutex);
-//			continue;
-//		}
-//		FuncType F = me->tasks.front();
-//		me->tasks.pop();
-//		void *parameter = me->parameters.front();
-//		me->parameters.pop();
-//
-//		me->threadCounter++;
-//		ReleaseMutex(me->mutex);
-//		F(parameter);
-//
-//		WaitForSingleObject(me->mutex, INFINITE);
-//		me->threadCounter--;
-//		ReleaseMutex(me->mutex);
-//	}
-//	return 0;
-//}
-
+	return 0;
+}
 

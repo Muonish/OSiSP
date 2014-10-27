@@ -51,7 +51,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		mas[i] = i+1;
 	for( int i = 0; i < Ntask; i++)
 	{
-		pool->task->add(TaskFunction, &mas[i]);
+		pool->taskd->add(TaskFunction, &mas[i]);
 		LOG(INFO) << "id " << std::to_string(GetCurrentThreadId()) << ": task number " << std::to_string(mas[i]) << " added to the queue";
 	}
 	_getch();

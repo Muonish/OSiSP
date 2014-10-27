@@ -11,12 +11,12 @@
 
 using namespace std;
 
-enum State { will_die, busy, can_work, dead };
+enum State { WILL_DIE, BUSY, CAN_WORK, DEAD };
 typedef void (*FuncType)(void*);
 
 struct TASKINFO
 {
-	FuncType task;
+	FuncType userFunction;
 	void *param;
 };
 
@@ -27,15 +27,11 @@ private:
 	{
 	private:
 		ThreadPool *parent;
-		HANDLE addMutex;
-		queue<TASKINFO> tasks;
 	public:
 		TaskDispatcher(ThreadPool *);
 		~TaskDispatcher(void);
 
 		bool add(FuncType, void*);
-		TASKINFO getTask();
-
 	};
 
 	class WorkerDispatcher
@@ -47,28 +43,41 @@ private:
 		struct WORKER
 		{
 			HANDLE thread;
-			FuncType task;
+			TASKINFO task;
 			State currentState;
-			HANDLE mutex;
+			HANDLE semaphore;
 		};
+
+		TASKINFO requestTask();
+		void lookAroundWorkers();
+		void dispatch(TASKINFO *);
+		void createWorker(TASKINFO *);
+		void killWorker(WORKER *);
+
+		static DWORD WINAPI threadWorkerDispatcher(PVOID pvParam);
+		static DWORD WINAPI threadWorker(PVOID pvParam);
+
+
+
 		vector<WORKER> threads;
 		int threadCounter;
 		ThreadPool *parent;
 		HANDLE threadMain;
 
 
-		static DWORD WINAPI threadWorkerDispatcher(PVOID pvParam);
-		static DWORD WINAPI threadWorker(PVOID pvParam);
 	};
 
 	int NthreadMin;
 	int NthreadMax;
-	HANDLE requestMutex;
+	queue<TASKINFO> tasks;
+	HANDLE notEmptySemaphore;
+	HANDLE queueMutex;
 
 	//static DWORD WINAPI threadFunction(PVOID pvParam);
 
 public:
 	ThreadPool(int, int);
 	~ThreadPool(void);
-	TaskDispatcher *task;
+	TaskDispatcher *taskd;
+	WorkerDispatcher *workd;
 };
