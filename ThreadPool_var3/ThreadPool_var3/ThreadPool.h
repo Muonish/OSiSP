@@ -46,6 +46,7 @@ private:
 			TASKINFO task;
 			State currentState;
 			HANDLE semaphore;
+			HANDLE mutexBusy;
 		};
 
 		TASKINFO requestTask();
@@ -57,9 +58,7 @@ private:
 		static DWORD WINAPI threadWorkerDispatcher(PVOID pvParam);
 		static DWORD WINAPI threadWorker(PVOID pvParam);
 
-
-
-		vector<WORKER> threads;
+		vector<WORKER*> threads;
 		int threadCounter;
 		ThreadPool *parent;
 		HANDLE threadMain;

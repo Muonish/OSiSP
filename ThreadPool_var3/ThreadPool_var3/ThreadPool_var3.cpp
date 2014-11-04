@@ -52,13 +52,13 @@ int _tmain(int argc, _TCHAR* argv[])
 	for( int i = 0; i < Ntask; i++)
 	{
 		pool->taskd->add(TaskFunction, &mas[i]);
-		LOG(INFO) << "id " << std::to_string(GetCurrentThreadId()) << ": task number " << std::to_string(mas[i]) << " added to the queue";
+		LOG(INFO) << "id " << GetCurrentThreadId() << ": task number " << mas[i] << " added to the queue";
 	}
 	_getch();
 
 	delete pool;
 	delete[] mas;
-	//HANDLE thread = CreateThread(NULL, 0, MainThreadFunction, NULL, 0, NULL);
+	LOG(INFO) << "MAS DELETED";
 
 	_getch();
 	return 0;
@@ -71,31 +71,11 @@ void TaskFunction(void* param)
 
 	if (runtime == 0)
 	{
-		LOG(INFO) << "id " << std::to_string(GetCurrentThreadId()) << ": ERROR: task number " << std::to_string(*i) << " is failed";
+		LOG(INFO) << "id " << GetCurrentThreadId() << ": ERROR: task number " << *i << " is failed";
 	}
 	else
 	{
 		Sleep(runtime * 10);
-		LOG(INFO) << "id " << std::to_string(GetCurrentThreadId()) << ": task number " << std::to_string(*i) << " is complited";
+		LOG(INFO) << "id " << GetCurrentThreadId() << ": task number " << *i << " is complited";
 	}
 }
-
-//DWORD WINAPI MainThreadFunction(PVOID pvParam)
-//{
-//	pool = new ThreadPool(NthreadMin, NthreadMax); 
-//	int *mas = new int[Ntask];
-//
-//	for( int i = 0; i < Ntask; i++)
-//		mas[i] = i+1;
-//	for( int i = 0; i < Ntask; i++)
-//	{
-//		pool->AddTask(TaskFunction, &mas[i]);
-//		LOG(INFO) << "id " << std::to_string(GetCurrentThreadId()) << ": task number " << std::to_string(mas[i]) << " added to the queue";
-//	}
-//	_getch();
-//
-//	delete pool;
-//	delete[] mas;
-//
-//	return 0 ;
-//}
