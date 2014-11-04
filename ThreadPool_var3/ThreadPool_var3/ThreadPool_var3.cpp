@@ -27,7 +27,6 @@ _INITIALIZE_EASYLOGGINGPP
 
 int _tmain(int argc, _TCHAR* argv[])
 {
-
 	srand(time(NULL)); 
 	LOG(INFO) << "================================================";
 	std::cout << "Enter the minimum number of threads: ";
