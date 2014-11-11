@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SharedMemory", "SharedMemory\SharedMemory.vcxproj", "{1CAD2ED0-A221-42BA-B35F-2ADF2A7770E7}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ProcessApp", "ProcessApp\ProcessApp.vcxproj", "{F17C6730-3709-44EE-896D-A261B929FE5B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -13,6 +15,10 @@ Global
 		{1CAD2ED0-A221-42BA-B35F-2ADF2A7770E7}.Debug|Win32.Build.0 = Debug|Win32
 		{1CAD2ED0-A221-42BA-B35F-2ADF2A7770E7}.Release|Win32.ActiveCfg = Release|Win32
 		{1CAD2ED0-A221-42BA-B35F-2ADF2A7770E7}.Release|Win32.Build.0 = Release|Win32
+		{F17C6730-3709-44EE-896D-A261B929FE5B}.Debug|Win32.ActiveCfg = Debug|Win32
+		{F17C6730-3709-44EE-896D-A261B929FE5B}.Debug|Win32.Build.0 = Debug|Win32
+		{F17C6730-3709-44EE-896D-A261B929FE5B}.Release|Win32.ActiveCfg = Release|Win32
+		{F17C6730-3709-44EE-896D-A261B929FE5B}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
