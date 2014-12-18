@@ -1,0 +1,11 @@
+10
+46;Vasiliev;Vladislav;Viktorovich;Prityckogo;107;1;63;
+2934567;Pupkin;Vasiliy;Petrovich;Yakuba kolasa;10;2;34;
+46;Ivanov;Ivan;Ivanovich;Strelenko;34;10;2;
+2456790;Kirillova;Masha;Alexandrovna;tyu;12;12;12;
+1234567;Ivanov;Petr;Igorevich;Strelenko;107;1;63;
+7658904;Antonov;Petr;Antonovich;Kulman;107;1;63;
+2345680;Semianov;Sergei;Alexandrovich;Kolcova;107;1;63;
+5674356;Bahtizin;Vladimir;Veniaminovich;Lenina;107;1;63;
+6578901;Petrov;Petr;Petrovich;Yakuba kolasa;21;2;3;
+2346190;Vasiliev;Ivan;Ivanovich;Sadovaya;34;10;2;
