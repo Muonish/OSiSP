@@ -322,8 +322,8 @@ void Clr4_v3Dlg::OnBnClickedButton1()//hendler for button
 	else
 	{
 		if (strcmp(adressHome, "") != 0)
-		{
-			abonentsArray = DataBaseSearchBySecondNameFunction(adressHome);
+		{	
+			abonentsArray = DataBaseSearchByAdressFunction(adressHome);
 			if (abonentsArray == 0)
 				return;
 
@@ -334,7 +334,7 @@ void Clr4_v3Dlg::OnBnClickedButton1()//hendler for button
 		{
 			if (strcmp(phoneNumber, "") != 0)
 			{
-				abonentsArray = DataBaseSearchBySecondNameFunction(phoneNumber);
+				abonentsArray = DataBaseSearchPhoneNumberFunction(phoneNumber);
 				if (abonentsArray == 0)
 					return;
 
