@@ -1,0 +1,29 @@
+// lr4_v3.idl : источник библиотеки типов для lr4_v3.exe
+
+// Этот файл будет обработан компилятором MIDL для создания
+// библиотеки типов (lr4_v3.tlb).
+
+[ uuid(CC5CC53A-31DC-450D-A276-928A3386A4B2), version(1.0) ]
+library lr4_v3
+{
+	importlib("stdole32.tlb");
+	importlib("stdole2.tlb");
+
+	//  Первичный интерфейс диспетчеризации для Clr4_v3Doc
+	
+	[ uuid(A7814054-F1DD-4C24-8ABE-8E1EA5A43223) ]
+	dispinterface Ilr4_v3
+	{
+		properties:
+			
+		methods:
+	};
+
+	//  Информация о классе для Clr4_v3Doc
+	
+	[ uuid(05DADF5F-6361-49DD-9BAA-8CF0E688299D) ]
+	coclass lr4_v3
+	{
+		[default] dispinterface Ilr4_v3;
+	};
+};

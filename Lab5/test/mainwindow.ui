@@ -9,8 +9,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>673</width>
-    <height>445</height>
+    <width>685</width>
+    <height>450</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -21,8 +21,8 @@
   </property>
   <property name="maximumSize">
    <size>
-    <width>673</width>
-    <height>445</height>
+    <width>685</width>
+    <height>450</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -99,66 +99,6 @@
      <enum>Qt::Vertical</enum>
     </property>
    </widget>
-   <widget class="QComboBox" name="comboBox">
-    <property name="geometry">
-     <rect>
-      <x>10</x>
-      <y>140</y>
-      <width>291</width>
-      <height>41</height>
-     </rect>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">font: 75 22pt &quot;Magneto&quot;;</string>
-    </property>
-    <item>
-     <property name="text">
-      <string>id</string>
-     </property>
-    </item>
-    <item>
-     <property name="text">
-      <string>surname</string>
-     </property>
-    </item>
-    <item>
-     <property name="text">
-      <string>name</string>
-     </property>
-    </item>
-    <item>
-     <property name="text">
-      <string>subname</string>
-     </property>
-    </item>
-    <item>
-     <property name="text">
-      <string>street</string>
-     </property>
-    </item>
-   </widget>
-   <widget class="QLabel" name="label_3">
-    <property name="geometry">
-     <rect>
-      <x>10</x>
-      <y>100</y>
-      <width>121</width>
-      <height>38</height>
-     </rect>
-    </property>
-    <property name="sizePolicy">
-     <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-      <horstretch>0</horstretch>
-      <verstretch>0</verstretch>
-     </sizepolicy>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">font: 18pt &quot;Verdana&quot;;</string>
-    </property>
-    <property name="text">
-     <string>Category</string>
-    </property>
-   </widget>
    <widget class="Line" name="line_2">
     <property name="geometry">
      <rect>
@@ -176,7 +116,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>240</y>
+      <y>110</y>
       <width>291</width>
       <height>41</height>
      </rect>
@@ -184,12 +124,15 @@
     <property name="styleSheet">
      <string notr="true">font: italic 24pt &quot;Monotype Corsiva&quot;;</string>
     </property>
+    <property name="text">
+     <string/>
+    </property>
    </widget>
    <widget class="QLabel" name="label_4">
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>200</y>
+      <y>70</y>
       <width>121</width>
       <height>38</height>
      </rect>
@@ -204,14 +147,14 @@
      <string notr="true">font: 18pt &quot;Verdana&quot;;</string>
     </property>
     <property name="text">
-     <string>String</string>
+     <string>Phone</string>
     </property>
    </widget>
    <widget class="QPushButton" name="pushButton">
     <property name="geometry">
      <rect>
       <x>30</x>
-      <y>340</y>
+      <y>360</y>
       <width>251</width>
       <height>51</height>
      </rect>
@@ -223,6 +166,82 @@ border:none;</string>
     </property>
     <property name="text">
      <string>SEARCH</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_5">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>160</y>
+      <width>121</width>
+      <height>38</height>
+     </rect>
+    </property>
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font: 18pt &quot;Verdana&quot;;</string>
+    </property>
+    <property name="text">
+     <string>LastName</string>
+    </property>
+   </widget>
+   <widget class="QLineEdit" name="lineEdit_2">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>200</y>
+      <width>291</width>
+      <height>41</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font: italic 24pt &quot;Monotype Corsiva&quot;;</string>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_6">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>250</y>
+      <width>121</width>
+      <height>38</height>
+     </rect>
+    </property>
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font: 18pt &quot;Verdana&quot;;</string>
+    </property>
+    <property name="text">
+     <string>Street</string>
+    </property>
+   </widget>
+   <widget class="QLineEdit" name="lineEdit_3">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>290</y>
+      <width>291</width>
+      <height>41</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font: italic 24pt &quot;Monotype Corsiva&quot;;</string>
+    </property>
+    <property name="text">
+     <string/>
     </property>
    </widget>
   </widget>

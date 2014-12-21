@@ -1,0 +1,17 @@
+REGEDIT
+; Возможно, этот файл .REG используется программой установки.
+;   Если программа SETUP недоступна, записи, расположенные ниже, будут зарегистрированы
+;   в InitInstance автоматически с вызовом в
+;   CWinApp::RegisterShellFileTypes и COleObjectFactory::UpdateRegistryAll.
+
+
+HKEY_CLASSES_ROOT\lr4_v3.Application = lr4_v3 Application
+
+
+HKEY_CLASSES_ROOT\lr4_v3.Application\CLSID = {05DADF5F-6361-49DD-9BAA-8CF0E688299D}
+
+HKEY_CLASSES_ROOT\CLSID\{05DADF5F-6361-49DD-9BAA-8CF0E688299D} = lr4_v3 Application
+HKEY_CLASSES_ROOT\CLSID\{05DADF5F-6361-49DD-9BAA-8CF0E688299D}\ProgId = lr4_v3.Application
+
+
+HKEY_CLASSES_ROOT\CLSID\{05DADF5F-6361-49DD-9BAA-8CF0E688299D}\LocalServer32 = lr4_v3.EXE

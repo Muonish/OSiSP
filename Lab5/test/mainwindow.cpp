@@ -23,7 +23,10 @@ MainWindow::~MainWindow()
 
 void MainWindow::on_pushButton_clicked()
 {
-    qDebug() << ui->comboBox->currentIndex() << ui->lineEdit->text();
-    std::string res = ParallelSearch(ui->comboBox->currentIndex(), (char *)ui->lineEdit->text().toStdString().c_str(), base);
+    //qDebug() << ui->comboBox->currentIndex() << ui->lineEdit->text();
+    std::string b;
+    b = ui->lineEdit->text().toStdString() + ";" + ui->lineEdit_2->text().toStdString() + ";" + ui->lineEdit_3->text().toStdString();
+
+    std::string res = ParallelSearch(0, (char *)b.c_str(), base);
     ui->plainTextEdit->setPlainText(res.c_str());
 }

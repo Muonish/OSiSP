@@ -28,7 +28,26 @@ void* LoadBase(wchar_t * BaseName)
     }
     return MapViewOfFile( mapoffile, FILE_MAP_ALL_ACCESS, 0, 0, 0);
 }
+/*
+void* DisconnectBase(wchar_t * BaseName)
+{
+    HANDLE mapoffile;
+    HANDLE file;
+    if( (mapoffile = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE,  (LPCWSTR)BaseName)) == NULL )
+    {
+        file = CreateFile((LPCWSTR)BaseName, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
+            NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
+        mapoffile = CreateFileMapping(file,  NULL, PAGE_READWRITE, 0, 100, (LPCWSTR)BaseName);
+        printf("This process create map of file\n");
+    }
+    else
+    {
+        printf("This process open map of file\n");
+    }
+    return MapViewOfFile( mapoffile, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+}
+*/
 void ThreadSearch( void* parameters);
 void printRecordDetails(int propertyIndex, char* propertyValue);
 void setRecordProperty(int propertyIndex, ContactRecord *currentRecord, char* sCount);
@@ -173,6 +192,25 @@ void ThreadSearch(void* parameters)
     int position = 0;
     char currentPropertyValue[100];
 
+
+
+    char itemParse[3][100];
+    int i = 0, j = 0;
+    int prev = 0;
+    while (i < strlen(item))
+    {
+        if (item[i] == ';')
+        {
+            strncpy(itemParse[j], item + prev, i - prev);
+            prev = i;
+            j++;
+        }
+        i++;
+    }
+
+    printf("0 - %s\n1 - %s\n4 - %s\n", itemParse[0], itemParse[1], itemParse[2]);
+
+
     vector<ContactRecord> resultRecords;
     ContactRecord currentRecord;
 
@@ -195,9 +233,13 @@ void ThreadSearch(void* parameters)
 
             setRecordProperty(j, &currentRecord, currentPropertyValue);
 
-            if (j == itemNumber)
+            //if (j == itemNumber)
+            if (j == 0 || j == 1 || j == 4)
             {
-                if (strcmp(currentPropertyValue, item) == 0 )
+                if (j == 4)
+                    j = 2;
+
+                if (strcmp(currentPropertyValue, itemParse[j]) != 0 && !isRecordTarget)
                 {
                     isRecordTarget = true;
                     result.push_back(i);
@@ -208,20 +250,8 @@ void ThreadSearch(void* parameters)
             position++;
         }
 
-        if (isRecordTarget)
+        if (!isRecordTarget)
         {
-            /*
-            printf("\n\t{ID} = %s;\n\t{FirstName} = %s,\n\t{SurName} = %s;\n\t{SubName} = %s;\n\t{Street} = %s;\n\t{House} = %s;\n\t;{Flat} = %s;\n\t{Unit} = %s\n\n",
-                currentRecord.id,
-                currentRecord.firstName,
-                currentRecord.surName,
-                currentRecord.subName,
-                currentRecord.street,
-                currentRecord.house,
-                currentRecord.flat,
-                currentRecord.unit);
-                */
-
             resultRecords.push_back(currentRecord);
         }
 
